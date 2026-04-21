@@ -12,22 +12,6 @@ const COLORS = {
 
 const AVATAR_COLORS = ["purple","teal","amber","coral","blue","green"];
 
-const SAMPLE_NOTES = `Q2 Planning Sync — Apr 21, 2026
-Attendees: Priya K, James M, Lin C, Arjun S, Maya R
-
-We discussed the roadmap priorities for next quarter and aligned on the mobile release date. After debate, we agreed to push to May 15 to allow more polish time.
-
-Priya to finalize the mobile design specs and share with engineering by Friday Apr 25.
-
-On the backend side, James needs to fix the auth timeout bug before end of sprint — this is blocking enterprise customers and is high priority.
-
-Lin to schedule customer interviews for the new onboarding flow research, targeting next week. Marketing should be looped in on the findings.
-
-Arjun will update the pricing page copy and push to staging by Thursday Apr 24 for review before the board meeting.
-
-Maya to draft the Q2 OKR summary doc and circulate to leadership by Apr 28.
-
-Next sync scheduled for May 5.`;
 
 // ─── Simulated API calls ───────────────────────────────────────────────
 async function callClaude(messages, system) {
@@ -46,11 +30,9 @@ async function callClaude(messages, system) {
 }
 
 async function extractActionItems(notes, meetingTitle, meetingDate) {
-  const system = `You are an action item extractor. Given meeting notes, extract all action items.
-Return ONLY valid JSON array, no markdown, no explanation.
-Each item: { "task": string, "owner": string, "ownerInitials": string, "deadline": string, "priority": "high"|"medium"|"low" }
-Deadline should be human-readable (e.g. "Apr 25" or "End of sprint"). If none, use "No deadline".
-Priority: high if urgent/blocking, medium default, low if optional.`;
+  const system = <div style={{ whiteSpace: "pre-wrap" }}>
+  {driveContent || "nothing in drive"}
+</div>;
 
   const prompt = `Meeting: ${meetingTitle}\nDate: ${meetingDate}\n\nNotes:\n${notes}\n\nExtract all action items as JSON array.`;
   const raw = await callClaude([{ role: "user", content: prompt }], system);
@@ -214,14 +196,53 @@ function SlackMessage({ task, index, color }) {
 
 // ─── Main App ─────────────────────────────────────────────────────────
 export default function App() {
-  const [driveFiles, setDriveFiles] = useState([]);
+ 
+ 
+ 
+ 
+ 
+  const fetchLatestFile = async (accessToken) => {
+  const filesRes = await fetch(
+    "https://www.googleapis.com/drive/v3/files?orderBy=modifiedTime desc&pageSize=1",
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }
+  );
+
+  const filesData = await filesRes.json();
+
+  if (!filesData.files || filesData.files.length === 0) {
+    setDriveContent("nothing in drive");
+    setDriveFiles([]);
+    return;
+  }
+
+  const file = filesData.files[0];
+  setDriveFiles(filesData.files);
+
+  const contentRes = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }
+  );
+
+  const text = await contentRes.text();
+  setDriveContent(text);
+};
+
+
+
+
+  const [driveContent, setDriveContent] = useState("");
+  const [driveFiles, setDriveFiles] = useState(null);
   const [view, setView] = useState("pipeline"); // pipeline | run | history
   const [authState, setAuthState] = useState({
     drive: false, calendar: false, linear: false, slack: false
   });
   const [meetingTitle, setMeetingTitle] = useState("Q2 Planning Sync");
   const [meetingDate, setMeetingDate] = useState("Apr 21, 2026");
-  const [notes, setNotes] = useState(SAMPLE_NOTES);
+  const [notes, setNotes] = useState(driveContent);
   const [stage, setStage] = useState("idle"); // idle | detecting | extracting | creating | notifying | done
   const [tasks, setTasks] = useState([]);
   const [logs, setLogs] = useState([]);
@@ -293,6 +314,20 @@ export default function App() {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
   }, [logs]);
 
+
+
+useEffect(() => {
+  const token = localStorage.getItem("drive_token");
+  const connected = localStorage.getItem("drive_connected");
+
+  if (token && connected) {
+    setAuthState(p => ({ ...p, drive: true }));
+    fetchLatestFile(token);
+  }
+}, []);
+
+
+
   const stageLabel = {
     idle: "Ready", detecting: "Detecting doc…", extracting: "Extracting tasks…",
     creating: "Creating tickets…", notifying: "Notifying team…", done: "Complete",
@@ -301,21 +336,16 @@ export default function App() {
 
 const login = useGoogleLogin({
   scope: "https://www.googleapis.com/auth/drive.readonly",
-  onSuccess: async (tokenResponse) => {
-    const res = await fetch("http://localhost:5000/drive/files", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        access_token: tokenResponse.access_token,
-      }),
-    });
+onSuccess: async (tokenResponse) => {
+  const accessToken = tokenResponse.access_token;
 
-    const data = await res.json();
-    setDriveFiles(data.files || []);
-    setAuthState(p => ({ ...p, drive: true }));
-  },
+  localStorage.setItem("drive_token", accessToken);
+  localStorage.setItem("drive_connected", "true");
+
+  await fetchLatestFile(accessToken);
+
+  setAuthState(p => ({ ...p, drive: true }));
+},
 });
 
 
@@ -442,9 +472,21 @@ style={{ cursor: "pointer" }}>
         {view === "run" && (
           <div style={{ animation: "slideIn 0.3s ease" }}>
            
-           
-           
-            {driveFiles.length > 0 && (
+
+{!driveContent ? (
+  <p>nothing in drive</p>
+) : (
+  <div style={{ whiteSpace: "pre-wrap" }}>
+    {driveContent}
+  </div>
+)}
+
+
+{driveFiles === null ? (
+  <p>Loading...</p>
+) : driveFiles.length === 0 ? (
+  <p>No files found</p>
+) : (
   <div style={{ marginTop: 20 }}>
     <h3>Drive Files</h3>
     {driveFiles.map(file => (
@@ -452,6 +494,8 @@ style={{ cursor: "pointer" }}>
     ))}
   </div>
 )}
+
+
 
 
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 22 }}>
