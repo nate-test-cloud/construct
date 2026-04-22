@@ -7,7 +7,7 @@ async function sendSlackDM(userId, message) {
   await fetch("https://slack.com/api/chat.postMessage", {
     method: "POST",
     headers: {
-      "Authorization": "Bearer xoxb-10964551440198-10994949093600-azlf1U2BeixMeN36eear9Ei1",
+      "Authorization": "Bearer ",
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -31,7 +31,7 @@ app.post("/extract", async (req, res) => {
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": "Bearer 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",
+        "Authorization": "Bearer ",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

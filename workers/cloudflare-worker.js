@@ -20,7 +20,7 @@ export default {
     const slackRes = await fetch("https://slack.com/api/chat.postMessage", {
       method: "POST",
       headers: {
-        Authorization: `Bearer xoxb-10964551440198-10994949093600-azlf1U2BeixMeN36eear9Ei1`,
+        Authorization: `Bearer `,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),

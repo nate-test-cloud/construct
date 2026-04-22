@@ -199,7 +199,7 @@ async function deleteCalendarEvent(token, eventId) {
 
 
 // ─── Slack: post task to #tasks ───────────────────────────────────────
-const SLACK_TOKEN = "xoxb-10964551440198-10994949093600-azlf1U2BeixMeN36eear9Ei1";
+const SLACK_TOKEN = "";
 const SLACK_CHANNEL = "#tasks";
 
 async function postToSlack(task, meetingTitle) {
